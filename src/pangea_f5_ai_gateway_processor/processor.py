@@ -9,19 +9,19 @@ from f5_ai_gateway_sdk.signature import BOTH_SIGNATURE, Signature
 from f5_ai_gateway_sdk.tags import Tags
 from f5_ai_gateway_sdk.type_hints import Metadata
 
-# from pangea.asyncio.services import ai_guard
 from pangea.response import PangeaResponse
-from pangea.services import ai_guard as aig
+from pangea.services.ai_guard import TextGuardResult
+from pangea.asyncio.services.ai_guard import AIGuardAsync
 from pydantic import Field
 
-def _guard_text(client: aig.AIGuard, body: dict) -> PangeaResponse[aig.TextGuardResult[list]]:
-    return client.request.post(
+async def _guard_text(client: AIGuardAsync, body: dict) -> PangeaResponse[TextGuardResult[list]]:
+    return await client.request.post(
         "v1beta/guard",
-        aig.TextGuardResult,
+        TextGuardResult,
         data=body
     )
 
-def _get_tags_from_aig_result(result: aig.TextGuardResult) -> Tags:
+def _get_tags_from_aig_result(result: TextGuardResult) -> Tags:
     t = Tags()
 
     reported: list[str] = []
@@ -74,7 +74,7 @@ class AIGuardProcessorParameters(Parameters):
     response_recipe: str | None = Field(default=None, description="AI Guard Response Recipe")
 
 class AIGuardProcessor(Processor):
-    def __init__(self, ai_guard: aig.AIGuard, signature: Signature = BOTH_SIGNATURE):
+    def __init__(self, ai_guard: AIGuardAsync, signature: Signature = BOTH_SIGNATURE):
         self.ai_guard = ai_guard
 
         super().__init__(
@@ -85,7 +85,7 @@ class AIGuardProcessor(Processor):
             parameters_class=AIGuardProcessorParameters,
         )
 
-    def process_input(
+    async def process_input(
         self, 
         prompt: RequestInput, 
         metadata: Metadata, 
@@ -110,7 +110,7 @@ class AIGuardProcessor(Processor):
                 "role": m.role,
             })
 
-        aig_resp = _guard_text(self.ai_guard, {
+        aig_resp = await _guard_text(self.ai_guard, {
             "messages": messages,
             "recipe": parameters.request_recipe,
             "app_name": "f5-ai-gateway",
@@ -146,7 +146,7 @@ class AIGuardProcessor(Processor):
             tags=tags,
         )
 
-    def process_response(
+    async def process_response(
         self, 
         prompt: RequestInput | None,
         response: ResponseOutput, 
@@ -166,7 +166,7 @@ class AIGuardProcessor(Processor):
                 "role": m.role,
             })
 
-        aig_resp = _guard_text(self.ai_guard, {
+        aig_resp = await _guard_text(self.ai_guard, {
             "messages": messages,
             "recipe": parameters.response_recipe,
             "app_name": "f5-ai-gateway",

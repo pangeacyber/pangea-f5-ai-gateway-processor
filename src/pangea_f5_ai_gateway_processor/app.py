@@ -7,7 +7,7 @@ from starlette.applications import Starlette
 from f5_ai_gateway_sdk.processor_routes import ProcessorRoutes
 
 from pangea.config import PangeaConfig
-from pangea.services import ai_guard as aig
+from pangea.asyncio.services.ai_guard import AIGuardAsync
 
 from pangea_f5_ai_gateway_processor.processor import AIGuardProcessor
 
@@ -23,7 +23,7 @@ def app_from_config(config_path: Path):
         base_url_template=config["base_url_template"]
     )
 
-    ai_guard = aig.AIGuard(
+    ai_guard = AIGuardAsync(
         token=config["ai_guard_api_token"],
         config=cfg,
     )

@@ -5,19 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "f5-ai-gateway-sdk>=1.0.1.dev3",
     "httpx>=0.28.1",
     "uvicorn>=0.34.3",
     "pangea-sdk>=6.1.1",
+    "f5-ai-gateway-sdk",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv.sources]
-f5-ai-gateway-sdk = { git = "https://github.com/nginxinc/f5-ai-gateway-sdk-py" }
-
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.uv.sources]
+f5-ai-gateway-sdk = { git = "https://github.com/nginxinc/f5-ai-gateway-sdk-py", branch = "main" }
