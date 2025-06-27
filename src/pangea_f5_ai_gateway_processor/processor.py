@@ -110,6 +110,9 @@ class AIGuardProcessor(Processor):
                 "role": m.role,
             })
 
+        if len(messages) == 0:
+            return Result()
+
         aig_resp = await _guard_text(self.ai_guard, {
             "messages": messages,
             "recipe": parameters.request_recipe,
@@ -165,6 +168,9 @@ class AIGuardProcessor(Processor):
                 "content": m.content,
                 "role": m.role,
             })
+
+        if len(messages) == 0:
+            return Result()
 
         aig_resp = await _guard_text(self.ai_guard, {
             "messages": messages,
