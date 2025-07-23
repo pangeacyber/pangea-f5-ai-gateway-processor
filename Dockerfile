@@ -21,7 +21,7 @@ WORKDIR /app
 
 RUN --mount=type=bind,from=build,source=/build/wheels,target=/app/wheels \
 		--mount=type=bind,from=build,source=/build/requirements.txt,target=/app/requirements.txt \
-		pip install --no-cache /build/wheels/*
+		pip install --no-cache /app/wheels/*
 
 # TODO: Entrypoint, or start script or something probably
 CMD [ \
