@@ -3,6 +3,55 @@
 As a prerequisite, we assume you have the F5 AI Gateway running in your kubernetes cluster. 
 https://aigateway.clouddocs.f5.com/installation/index.html
 
+## Helm
+
+1. Get your registry credentials from https://aidr.pangea.cloud and login
+```
+$ docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD registry.pangea.cloud
+```
+2. Add the registry secrets to kubernetes
+```
+$ kubectl create secret docker-registry pangea-registry \
+  --docker-server="registry.pangea.cloud" \
+  --docker-username="$REGISTRY_USERNAME" \
+  --docker-password="$REGISTRY_PASSWORD"
+```
+3. Create a local file, which we will use to make a kubernetes secret
+```
+{
+	"base_url_template": "https://{SERVICE_NAME}.aws.us.pangea.cloud",
+	"ai_guard_api_token": "pts_xxx"
+}
+```
+4. Create a kubernetes secret, saving the above JSON into the key "config.json"
+```
+$ kubectl create secret generic pangea-sdk-config --from-file=config.json=config.json
+```
+5. Install the helm chart (NOTE: These are also the default names in the values)
+```
+$ helm install -n example-ns pangea-f5-processor oci://registry.pangea.cloud/aidr/f5-processor-charts \
+  --version 0.1.0 \
+  --set sdkConfigSecretName=pangea-sdk-config \
+  --set "imagePullSecrets[0].name=pangea-registry"
+```
+6. Update the F5 AI Gateway config to use this processor:
+```
+processors:
+  - name: pangea-ai-guard
+    type: external
+    config:
+      endpoint: http://pangea-aidr.example-ns.svc.cluster.local
+      namespace: guardrails
+      version: 1
+    params: 
+      reject: true
+      # It supports both modify and reject
+      # modify: true
+      request_recipe: pangea_prompt_guard
+      response_recipe: pangea_llm_response_guard
+```
+
+
 ## Manual Installation
 
 1. Create a local file, which we will use to make a kubernetes secret

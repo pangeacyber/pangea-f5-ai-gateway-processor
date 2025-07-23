@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      containers:
+        - name: processor
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PANGEA_CONFIG_PATH
+              value: /etc/pangea/config.json
+          volumeMounts:
+            - name: pangea-sdk-config
+              mountPath: /etc/pangea
+              readOnly: true
+          ports:
+            - containerPort: 9999
+              name: http
+              protocol: TCP
+      volumes:
+        - name: pangea-sdk-config
+          secret:
+            secretName: {{ .Values.sdkConfigSecretName }}

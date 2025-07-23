@@ -1,0 +1,16 @@
+sdkConfigSecretName: pangea-sdk-config
+replicaCount: 1
+
+image:
+  repository: registry.pangea.cloud/aidr/f5-processor
+  tag: latest
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: pangea-registry
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}

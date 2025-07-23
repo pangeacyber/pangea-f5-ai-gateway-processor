@@ -1,0 +1,5 @@
+apiVersion: v2
+name: f5-processor-charts
+description: Helm chart for deploying the Pangea AIDR Processor
+version: 0.1.0
+appVersion: "1.0"
