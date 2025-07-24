@@ -1,3 +1,5 @@
+import json
+
 from f5_ai_gateway_sdk import RequestInput
 from f5_ai_gateway_sdk.parameters import Parameters
 from f5_ai_gateway_sdk.processor import Processor, Request
@@ -14,19 +16,23 @@ from pangea.services.ai_guard import TextGuardResult
 from pangea.asyncio.services.ai_guard import AIGuardAsync
 from pydantic import Field
 
-async def _guard_text(client: AIGuardAsync, body: dict) -> PangeaResponse[TextGuardResult[list]]:
+class GuardResult(TextGuardResult):
+    transformed: bool
+
+async def _guard_text(client: AIGuardAsync, body: dict) -> PangeaResponse[GuardResult]:
     return await client.request.post(
         "v1beta/guard",
-        TextGuardResult,
+        GuardResult,
         data=body
     )
 
-def _get_tags_from_aig_result(result: TextGuardResult) -> Tags:
+def _get_tags_from_aig_result(result: GuardResult) -> Tags:
     t = Tags()
 
     reported: list[str] = []
     attacks: list[str] = []
     redactions: list[str] = []
+
 
     for detector_name, detector_value in dict(result.detectors).items():
         if not detector_value or not detector_value.detected:
@@ -114,9 +120,14 @@ class AIGuardProcessor(Processor):
             return Result()
 
         aig_resp = await _guard_text(self.ai_guard, {
-            "messages": messages,
+            "input": {
+                "messages": messages
+            },
             "recipe": parameters.request_recipe,
-            "app_name": "f5-ai-gateway",
+            "event_type": "input",
+            "extra_info": {
+                "app_name": "f5-ai-gateway",
+            },
         })
         # aig_resp = self.ai_guard.guard_text(messages=messages, recipe=parameters.request_recipe)
         if not aig_resp.success or aig_resp.result is None:
@@ -130,19 +141,21 @@ class AIGuardProcessor(Processor):
         result = aig_resp.result
         assert(result)
 
-        tags = _get_tags_from_aig_result(result) if parameters.annotate else Tags()
+        tags = Tags()
+        tags.add_tag("pangea-ai-guard-blocked", json.dumps(result.blocked))
+        tags.add_tag("pangea-ai-guard-modified", json.dumps(result.transformed))
 
         if (parameters.reject or parameters.modify) and result.blocked:
             return Reject(code=RejectCode.POLICY_VIOLATION, detail="Blocked by AI Guard", tags=tags)
 
         modified = False
-        if parameters.modify:
-            assert(result.prompt_messages)
+        if parameters.modify and result.transformed:
+            modified = True
+            messages = result.output["messages"]  # type: ignore
             # Lets see if there is any difference
-            for old, new in zip(prompt.messages, result.prompt_messages):
+            for old, new in zip(prompt.messages, messages):
                 if old.content != new["content"]:
                     old.content = new["content"]
-                    modified = True
 
         return Result(
             modified_prompt=prompt if modified else None,
@@ -173,9 +186,14 @@ class AIGuardProcessor(Processor):
             return Result()
 
         aig_resp = await _guard_text(self.ai_guard, {
-            "messages": messages,
+            "input": {
+                "messages": messages
+            },
             "recipe": parameters.response_recipe,
-            "app_name": "f5-ai-gateway",
+            "event_type": "input",
+            "extra_info": {
+                "app_name": "f5-ai-gateway",
+            },
         })
         # aig_resp = self.ai_guard.guard_text(messages=messages, recipe=parameters.response_recipe)
         if not aig_resp.success or aig_resp.result is None:
@@ -188,20 +206,20 @@ class AIGuardProcessor(Processor):
         result = aig_resp.result
         assert(result)
 
-        tags = _get_tags_from_aig_result(result) if parameters.annotate else Tags()
+        tags = Tags()
+        tags.add_tag("pangea-ai-guard-blocked", json.dumps(result.blocked))
+        tags.add_tag("pangea-ai-guard-modified", json.dumps(result.transformed))
 
         if parameters.reject and result.blocked:
             return Reject(code=RejectCode.POLICY_VIOLATION, detail="Blocked by AI Guard", tags=tags)
 
         modified = False
-        if parameters.modify:
-            assert(result.prompt_messages)
-            # Lets see if there is any difference
-            for old, new in zip(response.choices, result.prompt_messages):
-                old = old.message
-                if old.content != new["content"]:
-                    old.content = new["content"]
-                    modified = True
+        if parameters.modify and result.transformed:
+            modified = True
+            messages = result.output["messages"]  # type: ignore
+            for old, new in zip(response.choices, messages):
+                if old.message.content != new["content"]:
+                    old.message.content = new["content"]
 
         return Result(
             modified_response=response if modified else None,
